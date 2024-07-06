@@ -13,17 +13,102 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Role enum
 enum Role {
   ADMIN
   CUSTOMER
 }
 
+// Order status enum
+enum OrderStatus {
+  PENDING
+  DONE
+  CANCEL
+}
+
+// User model
 model User {
   id        Int      @id @default(autoincrement())
+  name      String
+  address   String?
   email     String   @unique
   password  String
   token     String?
   role      Role     @default(CUSTOMER)
+  order     Order[]
+  cart      Cart[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+// Category model
+model Category {
+  id        Int       @id @default(autoincrement())
+  name      String
+  product   Product[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@map("categories")
+}
+
+// Product model
+model Product {
+  id            Int            @id @default(autoincrement())
+  category      Category       @relation(fields: [category_id], references: [id])
+  category_id   Int
+  name          String
+  description   String?
+  price         String
+  stock         Int
+  order_product OrderProduct[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  cart          Cart[]
+
+  @@map("products")
+}
+
+model Cart {
+  id         Int      @id @default(autoincrement())
+  user       User     @relation(fields: [user_id], references: [id])
+  user_id    Int
+  product    Product  @relation(fields: [product_id], references: [id])
+  product_id Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("carts")
+}
+
+// Order model
+model Order {
+  id            Int            @id @default(autoincrement())
+  user          User           @relation(fields: [user_id], references: [id])
+  user_id       Int
+  order_date    DateTime
+  status        OrderStatus
+  total_price   Int
+  order_product OrderProduct[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@map("orders")
+}
+
+// OrderProduct model
+model OrderProduct {
+  id         Int      @id @default(autoincrement())
+  order      Order    @relation(fields: [order_id], references: [id])
+  order_id   Int
+  product    Product  @relation(fields: [product_id], references: [id])
+  product_id Int
+  quantity   Int
+  price      Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("order_products")
 }
