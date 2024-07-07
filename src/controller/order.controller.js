@@ -7,7 +7,7 @@ export class OrderController {
     try {
       const getUserOrderRequest = {
         loggedUserRole: req?.loggedUser?.role,
-        userId: req?.params?.userId ? Number(req.params.userId) : null,
+        userId: req?.loggedUser?.id ? Number(req.loggedUser.id) : null,
         status: String(req?.query?.status)?.toLocaleLowerCase(),
       };
 

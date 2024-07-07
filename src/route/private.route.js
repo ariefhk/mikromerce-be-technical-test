@@ -15,7 +15,8 @@ privateRouter.delete(authPrefix + "/logout", authMiddleware, UserController.logo
 
 // USER ROUTES
 privateRouter.delete(userPrefix + "/:userId", authMiddleware, UserController.delete);
-privateRouter.put(userPrefix + "/:userId", authMiddleware, UserController.update);
+privateRouter.put(userPrefix + "/current", authMiddleware, imgUploader, UserController.updateCurrentUser);
+privateRouter.put(userPrefix + "/:userId", authMiddleware, imgUploader, UserController.update);
 privateRouter.get(userPrefix + "/current", authMiddleware, UserController.getCurrentUser);
 privateRouter.get(userPrefix + "/:userId", authMiddleware, UserController.getUserById);
 privateRouter.get(userPrefix, authMiddleware, UserController.getAll);
@@ -27,20 +28,20 @@ privateRouter.post(categoryPrefix, authMiddleware, CategoryController.create);
 
 // PRODUCT ROUTE
 privateRouter.delete(productPrefix + "/:productId", authMiddleware, ProductController.delete);
-privateRouter.put(productPrefix + "/:productId", authMiddleware, ProductController.update);
+privateRouter.put(productPrefix + "/:productId", authMiddleware, imgUploader, ProductController.update);
 privateRouter.post(productPrefix, authMiddleware, imgUploader, ProductController.create);
 
 // CART ROUTE
 privateRouter.delete(cartPrefix + "/:cartId", authMiddleware, CartController.delete);
 privateRouter.get(cartPrefix + "/current", authMiddleware, CartController.getCurrentUserCart);
 privateRouter.post(cartPrefix, authMiddleware, CartController.create);
-privateRouter.get(cartPrefix + "/user/:userId", authMiddleware, CartController.getUserCart);
+privateRouter.get(cartPrefix, authMiddleware, CartController.getUserCart);
 
 // ORDER ROUTE
 privateRouter.post(orderPrefix + "/:orderId/accept", authMiddleware, OrderController.acceptOrder);
 privateRouter.post(orderPrefix + "/:orderId/cancel", authMiddleware, OrderController.cancelOrder);
 privateRouter.post(orderPrefix, authMiddleware, imgUploader, OrderController.create);
-privateRouter.get(orderPrefix + "/user/:userId", authMiddleware, OrderController.getUserOrder);
+privateRouter.get(orderPrefix + "/current", authMiddleware, OrderController.getUserOrder);
 privateRouter.get(orderPrefix, authMiddleware, OrderController.getAllOrder);
 
 export { privateRouter };

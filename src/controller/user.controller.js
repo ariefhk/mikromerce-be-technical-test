@@ -26,6 +26,7 @@ export class UserController {
         id: loggedUser?.id,
         name: loggedUser?.name,
         email: loggedUser?.email,
+        photo: loggedUser?.photo,
         address: loggedUser?.address,
       };
 
@@ -96,7 +97,31 @@ export class UserController {
         address: req.body.address,
         password: req.body.password,
         role: req.body.role,
+        isCurrentUser: false,
       };
+
+      const result = await UserService.update(updateUserRequest);
+
+      return res.status(API_STATUS_CODE.CREATED).json(ResponseHelper.toJson("Success update user!", result));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async updateCurrentUser(req, res, next) {
+    try {
+      const updateUserRequest = {
+        loggedUserRole: req?.loggedUser?.role,
+        userId: req.loggedUser.id,
+        name: req.body.name,
+        photo: req?.file,
+        email: req.body.email,
+        address: req.body.address,
+        password: req.body.password,
+        isCurrentUser: true,
+      };
+
+      console.log(updateUserRequest);
 
       const result = await UserService.update(updateUserRequest);
 

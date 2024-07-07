@@ -212,9 +212,17 @@ export class UserService {
   }
 
   static async update(request) {
-    const { name, email, address, password, photo, phone_number, role, userId } = request;
+    const { name, email, address, password, photo, phone_number, role, userId, isCurrentUser, loggedUserRole } = request;
+
+    if (!isCurrentUser) {
+      checkAllowedRole(ROLE.IS_ADMIN, loggedUserRole);
+    }
 
     const existedUser = await this.checkUserMustBeExistById(userId);
+
+    if (photo && existedUser.photo) {
+      await CloudinaryService.deleteImage(existedUser.photo);
+    }
 
     const updatedUser = await db.user.update({
       where: {

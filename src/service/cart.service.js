@@ -85,9 +85,8 @@ export class CartService {
     const { name, userId, loggedUserRole, isAdmin } = request;
     const filter = {};
 
-    await UserService.checkUserMustBeExistById(userId);
-
     if (!isAdmin) {
+      await UserService.checkUserMustBeExistById(userId);
       checkAllowedRole(ROLE.IS_ALL_ROLE, loggedUserRole);
       filter.AND = [
         {

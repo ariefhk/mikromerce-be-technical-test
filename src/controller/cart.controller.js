@@ -39,7 +39,6 @@ export class CartController {
   static async getUserCart(req, res, next) {
     try {
       const getUserCartRequest = {
-        userId: req?.params?.userId ? Number(req.params.userId) : null,
         name: req?.query?.name,
         loggedUserRole: req?.loggedUser?.role,
         isAdmin: req?.loggedUser?.role === "ADMIN",

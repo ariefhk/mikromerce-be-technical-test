@@ -74,6 +74,7 @@ model Product {
   @@map("products")
 }
 
+// Cart Model
 model Cart {
   id         Int      @id @default(autoincrement())
   user       User     @relation(fields: [user_id], references: [id])
