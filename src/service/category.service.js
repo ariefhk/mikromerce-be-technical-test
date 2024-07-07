@@ -22,9 +22,8 @@ export class CategoryService {
     return existedCategory;
   }
 
-  static async createCategory(request) {
+  static async create(request) {
     const { name, loggedUserRole } = request;
-
     checkAllowedRole(ROLE.IS_ADMIN, loggedUserRole);
 
     if (!name) {
@@ -38,7 +37,7 @@ export class CategoryService {
     });
 
     if (countCategory !== 0) {
-      throw new APIError(API_STATUS_CODE.BAD_REQUEST, "Category already exists!");
+      throw new APIError(API_STATUS_CODE.BAD_REQUEST, `Category ${name} already exists!`);
     }
 
     const createCategory = await db.category.create({
@@ -47,15 +46,18 @@ export class CategoryService {
       },
     });
 
-    return createCategory;
+    return {
+      id: createCategory.id,
+      name: createCategory.name,
+      createdAt: createCategory.createdAt,
+    };
   }
 
-  static async updateCategory(request) {
+  static async update(request) {
     const { name, categoryId, loggedUserRole } = request;
-
     checkAllowedRole(ROLE.IS_ADMIN, loggedUserRole);
 
-    const existedCategory = await CategoryService.checkCategoryMustBeExistById(categoryId);
+    const existedCategory = await this.checkCategoryMustBeExistById(categoryId);
 
     const updateCategory = await db.category.update({
       where: {
@@ -66,10 +68,14 @@ export class CategoryService {
       },
     });
 
-    return updateCategory;
+    return {
+      id: updateCategory.id,
+      name: updateCategory.name,
+      createdAt: updateCategory.createdAt,
+    };
   }
 
-  static async getAllCategory(request) {
+  static async getAll(request) {
     const { name } = request;
     const filter = {};
 
@@ -89,17 +95,21 @@ export class CategoryService {
         },
       ],
       where: filter,
+      select: {
+        id: true,
+        name: true,
+        createdAt: true,
+      },
     });
 
     return categories;
   }
 
-  static async deleteCategory(request) {
+  static async delete(request) {
     const { categoryId, loggedUserRole } = request;
-
     checkAllowedRole(ROLE.IS_ADMIN, loggedUserRole);
 
-    const existedCategory = await CategoryService.checkCategoryMustBeExistById(categoryId);
+    const existedCategory = await this.checkCategoryMustBeExistById(categoryId);
 
     await db.category.delete({
       where: {

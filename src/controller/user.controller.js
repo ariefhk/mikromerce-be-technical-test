@@ -12,7 +12,39 @@ export class UserController {
 
       const result = await UserService.getAllUsers(getAllUserRequest);
 
-      return res.status(API_STATUS_CODE.OK).json(ResponseHelper.toJson("Success get all user", result));
+      return res.status(API_STATUS_CODE.OK).json(ResponseHelper.toJson("Success get all User!", result));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getCurrentUser(req, res, next) {
+    try {
+      const loggedUser = req?.loggedUser;
+
+      const user = {
+        id: loggedUser?.id,
+        name: loggedUser?.name,
+        email: loggedUser?.email,
+        address: loggedUser?.address,
+      };
+
+      return res.status(API_STATUS_CODE.OK).json(ResponseHelper.toJson("Success get current user!", user));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getUserById(req, res, next) {
+    try {
+      const getUserByIdRequest = {
+        loggedUserRole: req?.loggedUser?.role,
+        userId: req.params.userId ? Number(req.params.userId) : null,
+      };
+
+      const result = await UserService.getUserById(getUserByIdRequest);
+
+      return res.status(API_STATUS_CODE.OK).json(ResponseHelper.toJson("Success get user!", result));
     } catch (error) {
       next(error);
     }
@@ -27,7 +59,7 @@ export class UserController {
 
       const result = await UserService.login(loginUserRequest);
 
-      return res.status(API_STATUS_CODE.OK).json(ResponseHelper.toJson("Success login user", result));
+      return res.status(API_STATUS_CODE.OK).json(ResponseHelper.toJson("Success login user!", result));
     } catch (error) {
       next(error);
     }
@@ -39,31 +71,14 @@ export class UserController {
         name: req.body.name,
         email: req.body.email,
         address: req.body.address,
+        phone_number: req.body.phone_number,
         password: req.body.password,
-        role: req.body.role,
+        role: "CUSTOMER",
       };
 
       const result = await UserService.register(registerUserRequest);
 
-      return res.status(API_STATUS_CODE.CREATED).json(ResponseHelper.toJson("Success create user", result));
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  static async get(req, res, next) {
-    try {
-      const loggedUser = req?.loggedUser;
-
-      const user = {
-        id: loggedUser?.id,
-        name: loggedUser?.namem,
-        email: loggedUser?.email,
-        address: loggedUser?.address,
-        role: loggedUser?.role,
-      };
-
-      return res.status(API_STATUS_CODE.OK).json(ResponseHelper.toJson("Success get user", user));
+      return res.status(API_STATUS_CODE.CREATED).json(ResponseHelper.toJson("Success register user!", result));
     } catch (error) {
       next(error);
     }
@@ -83,7 +98,7 @@ export class UserController {
 
       const result = await UserService.update(updateUserRequest);
 
-      return res.status(API_STATUS_CODE.CREATED).json(ResponseHelper.toJson("Success update user", result));
+      return res.status(API_STATUS_CODE.CREATED).json(ResponseHelper.toJson("Success update user!", result));
     } catch (error) {
       next(error);
     }
@@ -96,9 +111,9 @@ export class UserController {
         userId: req.params.userId ? Number(req.params.userId) : null,
       };
 
-      const result = await UserService.delete(deleteUserRequest);
+      await UserService.delete(deleteUserRequest);
 
-      return res.status(API_STATUS_CODE.OK).json(ResponseHelper.toJson("Success delete user", result));
+      return res.status(API_STATUS_CODE.OK).json(ResponseHelper.toJson("Success delete user!"));
     } catch (error) {
       next(error);
     }
@@ -107,12 +122,13 @@ export class UserController {
   static async logout(req, res, next) {
     try {
       const logoutUserRequest = {
+        loggedUserRole: req?.loggedUser?.role,
         userId: req.loggedUser.id,
       };
 
-      const result = await UserService.logout(logoutUserRequest);
+      await UserService.logout(logoutUserRequest);
 
-      return res.status(API_STATUS_CODE.OK).json(ResponseHelper.toJson("Success logout user", result));
+      return res.status(API_STATUS_CODE.OK).json(ResponseHelper.toJson("Success logout user!"));
     } catch (error) {
       next(error);
     }

@@ -1,3 +1,4 @@
+import e from "express";
 import { db } from "../db/connector.js";
 import { APIError } from "../error/api.error.js";
 import { ROLE, checkAllowedRole } from "../helper/role-check.helper.js";
@@ -5,7 +6,7 @@ import { API_STATUS_CODE } from "../helper/status-code.helper.js";
 import { UserService } from "./user.service.js";
 
 export class OrderService {
-  static async checkOrderMustExist(orderId) {
+  static async checkOrderMustBeExistById(orderId) {
     if (!orderId) {
       throw new APIError(API_STATUS_CODE.NOT_FOUND, "Order Id Not Inputed!");
     }
@@ -13,27 +14,6 @@ export class OrderService {
     const existedOrder = await db.order.findUnique({
       where: {
         id: orderId,
-      },
-      select: {
-        id: true,
-        order_date: true,
-        status: true,
-        total_price: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            address: true,
-          },
-        },
-        order_product: {
-          select: {
-            product_id: true,
-            quantity: true,
-            price: true,
-          },
-        },
       },
     });
 
@@ -44,262 +24,91 @@ export class OrderService {
     return existedOrder;
   }
 
-  static async createOrder(request) {
-    // Inside requestedProducts array, each product should have id, quantity
-    const { userId, requestedProducts, loggedUserRole } = request;
-    checkAllowedRole(ROLE.IS_ALL_ROLE, loggedUserRole);
+  static async getAllOrder(request) {
+    const { loggedUserRole, userId, status } = request;
 
-    const existedUser = await UserService.checkUserMustBeExistById(userId);
+    const filter = {};
 
-    if (!requestedProducts || requestedProducts?.length === 0) {
-      throw new APIError(API_STATUS_CODE.BAD_REQUEST, "Products must not empty to order!");
-    }
-
-    // collect all product ids
-    const requestedProductIds = requestedProducts?.map((p) => p.id);
-
-    // check if all requestedProducts exist
-    const dbProducts = await db.product.findMany({
-      where: {
-        id: {
-          in: requestedProductIds,
+    if (userId) {
+      checkAllowedRole(ROLE.IS_ALL_ROLE, loggedUserRole);
+      const existedUser = await UserService.checkUserMustBeExistById(userId);
+      filter.AND = [
+        {
+          user_id: existedUser.id,
         },
-      },
-    });
-
-    // check if all requestedProducts exist
-    if (dbProducts.length !== requestedProductIds.length) {
-      const foundProductIds = dbProducts.map((p) => p.id);
-      const missingProductIds = requestedProductIds.filter((id) => !foundProductIds.includes(id));
-      throw new APIError(API_STATUS_CODE.NOT_FOUND, `Products not found for IDs: ${missingProductIds.join(", ")}`);
-    }
-
-    // Check if requested quantity is available in stock
-    const insufficientStockProducts = dbProducts.filter((dbProduct) => {
-      const requestedQuantity = requestedProducts.find((p) => p.id === dbProduct.id)?.quantity || 0;
-      return dbProduct.stock < requestedQuantity;
-    });
-
-    // If there are requestedProducts with insufficient stock, throw an error
-    if (insufficientStockProducts.length > 0) {
-      const insufficientStockDetails = insufficientStockProducts.map((p) => ({
-        id: p.id,
-        name: p.name,
-      }));
-      const insufficientStockMessage = insufficientStockDetails.map((p) => `${p.name} (ID: ${p.id})`).join(", ");
-      throw new APIError(API_STATUS_CODE.BAD_REQUEST, `Insufficient stock for requestedProducts: ${insufficientStockMessage}`);
-    }
-
-    // Calculate total price
-    const total_price = dbProducts.reduce((acc, product) => {
-      const quantity = requestedProducts.find((p) => p.id === product.id)?.quantity || 0;
-      return acc + Number(product.price) * quantity;
-    }, 0);
-
-    // Deduct stock from requestedProducts
-    await db.$transaction(async (prismaTrans) => {
-      try {
-        for (const product of dbProducts) {
-          const requestedQuantity = requestedProducts.find((p) => p.id === product.id)?.quantity || 0;
-          await prismaTrans.product.update({
-            where: { id: product.id },
-            data: { stock: { decrement: requestedQuantity } },
-          });
-        }
-        return updatedProducts;
-      } catch (error) {
-        console.error("Error inside transaction update stock in create order:", error.message);
-        throw new APIError(API_STATUS_CODE.BAD_REQUEST, "failed update stock in create order!"); // Re-throw to ensure transaction is rolled back
-      }
-    });
-
-    // Create order
-    const order = await db.$transaction(async (prismaTrans) => {
-      try {
-        const createdOrder = await prismaTrans.order.create({
-          data: {
-            user_id: existedUser.id,
-            order_date: new Date(),
-            status: "PENDING", // Initial status is false (not accepted)
-            total_price: total_price,
-            order_product: {
-              create: requestedProducts.map((p) => ({
-                product_id: p.id,
-                quantity: p.quantity,
-                price: Number(dbProducts.find((product) => product.id === p.id)?.price),
-              })),
-            },
-          },
-        });
-
-        return createdOrder;
-      } catch (error) {
-        console.error("Error inside transaction order:", error.message);
-        throw new APIError(API_STATUS_CODE.BAD_REQUEST, "failed create order!"); // Re-throw to ensure transaction is rolled back
-      }
-    });
-
-    return order;
-  }
-
-  static async acceptOrder(request) {
-    const { orderId, loggedUserRole } = request;
-    checkAllowedRole(ROLE.IS_ADMIN, loggedUserRole);
-
-    const existedOrder = await this.checkOrderMustExist(orderId);
-
-    if (existedOrder.status === "DONE") {
-      throw new APIError(API_STATUS_CODE.BAD_REQUEST, "Order already accepted!");
-    }
-
-    await db.$transaction(async (prismaTrans) => {
-      try {
-        // Update the order status to accepted
-        const acceptedOrder = await prismaTrans.order.update({
-          where: { id: existedOrder.id },
-          data: { status: "DONE" },
-          select: {
-            id: true,
-            order_date: true,
-            status: true,
-            total_price: true,
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                address: true,
-              },
-            },
-            order_product: {
-              select: {
-                id: true,
-                quantity: true,
-                price: true,
-                product: {
-                  select: {
-                    id: true,
-                    name: true,
-                  },
-                },
-              },
-            },
-          },
-        });
-
-        // Update the product stock based on the order products
-        for (const orderProduct of existedOrder.order_product) {
-          await prismaTrans.product.update({
-            where: { id: orderProduct.product_id },
-            data: { stock: { decrement: orderProduct.quantity } },
-          });
-        }
-
-        await prismaTrans.orderHistory.create({
-          data: {
-            order_id: acceptedOrder.id,
-            status: "DONE",
-            user_id: acceptedOrder.user.id,
-            order_date: acceptedOrder.order_date,
-            total_price: acceptedOrder.total_price,
-            user_name: acceptedOrder.user.name,
-            order_product_history: {
-              create: acceptedOrder.order_product.map((p) => ({
-                order_product_id: p.id,
-                product_id: p.product.id,
-                product_name: p.product.name,
-                quantity: p.quantity,
-                price: p.price,
-              })),
-            },
-          },
-        });
-      } catch (error) {
-        console.error("Error inside transaction accepted order:", error.message);
-        throw new APIError(API_STATUS_CODE.BAD_REQUEST, "failed accept order!"); // Re-throw to ensure transaction is rolled back
-      }
-    });
-
-    return true;
-  }
-
-  static async getOrder(request) {
-    const { orderId, loggedUserRole } = request;
-    checkAllowedRole(ROLE.IS_ALL_ROLE, loggedUserRole);
-
-    const order = await this.checkOrderMustExist(orderId);
-
-    return order;
-  }
-
-  static async getCurrentUserOrder(request) {
-    const { userId, loggedUserRole } = request;
-    checkAllowedRole(ROLE.IS_ALL_ROLE, loggedUserRole);
-
-    const existedUser = await UserService.checkUserMustBeExistById(userId);
-
-    const orders = await db.order.findMany({
-      where: {
-        AND: [
-          {
-            user_id: existedUser.id,
-          },
-          {
+      ];
+      switch (status) {
+        case "process":
+          filter.AND.push({
             status: {
               equals: "PENDING",
             },
-          },
-        ],
-      },
-      orderBy: [
-        {
-          order_date: "desc",
-        },
-      ],
-      select: {
-        id: true,
-        order_date: true,
-        status: true,
-        total_price: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            address: true,
-          },
-        },
-        order_product: {
-          select: {
-            product_id: true,
-            quantity: true,
-            price: true,
-          },
-        },
-      },
-    });
+          });
+          break;
+        case "accepted":
+          filter.AND.push({
+            status: {
+              equals: "DONE",
+            },
+          });
 
-    return orders;
-  }
+          break;
+        case "cancelled":
+          filter.AND.push({
+            status: {
+              equals: "CANCELLED",
+            },
+          });
 
-  static async getAllOrders(request) {
-    const { name, loggedUserRole } = request;
-    checkAllowedRole(ROLE.IS_ADMIN, loggedUserRole);
-    const filter = {};
+          break;
+        case "done":
+          filter.AND.push({
+            status: {
+              not: "PENDING",
+            },
+          });
 
-    if (name) {
-      filter.name = {
-        contains: name,
-        mode: "insensitive",
-      };
+          break;
+        default:
+          filter.AND.push({
+            status: {
+              in: ["PENDING", "CANCELLED", "DONE"],
+            },
+          });
+          break;
+      }
+    } else {
+      checkAllowedRole(ROLE.IS_ADMIN, loggedUserRole);
+      switch (status) {
+        case "process":
+          filter.status = {
+            equals: "PENDING",
+          };
+          break;
+        case "accepted":
+          filter.status = {
+            equals: "DONE",
+          };
+          break;
+        case "cancelled":
+          filter.status = {
+            equals: "CANCELLED",
+          };
+          break;
+        case "done":
+          filter.status = {
+            not: "PENDING",
+          };
+          break;
+        default:
+          filter.status = {
+            in: ["PENDING", "CANCELLED", "DONE"],
+          };
+          break;
+      }
     }
 
-    const orders = await db.order.findMany({
-      orderBy: [
-        {
-          order_date: "desc",
-        },
-      ],
+    const existedAllOrder = await db.order.findMany({
       where: filter,
       select: {
         id: true,
@@ -316,33 +125,103 @@ export class OrderService {
         },
         order_product: {
           select: {
-            product_id: true,
+            id: true,
             quantity: true,
             price: true,
+            product: {
+              select: {
+                id: true,
+                name: true,
+                price: true,
+                stock: true,
+                description: true,
+              },
+            },
           },
         },
       },
     });
 
-    return orders;
+    return existedAllOrder;
   }
 
-  static async cancelOrder(request) {
-    const { orderId, loggedUserRole } = request;
+  static async createOrder(request) {
+    const { userId, requestedProducts, loggedUserRole } = request;
     checkAllowedRole(ROLE.IS_ALL_ROLE, loggedUserRole);
 
-    const existedOrder = await this.checkOrderMustExist(orderId);
+    const existedUser = await UserService.checkUserMustBeExistById(userId);
 
-    if (existedOrder.status === "CANCEL") {
-      throw new APIError(API_STATUS_CODE.BAD_REQUEST, "Order already canceled!");
+    if (!requestedProducts || requestedProducts?.length === 0) {
+      throw new APIError(API_STATUS_CODE.BAD_REQUEST, "Products must not empty to order!");
     }
 
-    await db.$transaction(async (prismaTrans) => {
+    const requestedProductIds = requestedProducts.map((product) => product.id);
+
+    const existedProductInCarts = await db.cart.findMany({
+      where: {
+        user_id: userId,
+        product_id: {
+          in: requestedProductIds,
+        },
+      },
+      include: {
+        product: true,
+      },
+    });
+
+    if (existedProductInCarts.length === 0) {
+      throw new APIError(API_STATUS_CODE.BAD_REQUEST, "Products not found in cart!");
+    }
+
+    const existedProductIds = existedProductInCarts.map((cart) => cart.product.id);
+
+    if (existedProductIds.length !== requestedProductIds.length) {
+      const notFoundProductIds = requestedProductIds.filter((productId) => !existedProductIds.includes(productId));
+
+      throw new APIError(API_STATUS_CODE.NOT_FOUND, `Products not found for IDs: ${notFoundProductIds.join(", ")}`);
+    }
+
+    const insufficientProductStock = existedProductInCarts.filter((cart) => {
+      const requestedProduct = requestedProducts.find((r) => r.id === cart.product.id);
+
+      return cart.product.stock < requestedProduct.quantity;
+    });
+
+    if (insufficientProductStock.length > 0) {
+      const insufficientProductStockDetails = insufficientProductStock.map((cart) => ({
+        id: cart?.product?.id,
+        name: cart?.product?.name,
+      }));
+      const insufficientProductStockMessage = insufficientProductStockDetails.map((p) => `${p.name} (ID: ${p.id})`).join(", ");
+      throw new APIError(
+        API_STATUS_CODE.BAD_REQUEST,
+        `Insufficient stock for requestedProducts: ${insufficientProductStockMessage}`
+      );
+    }
+
+    const total_price = existedProductInCarts.reduce((acc, cart) => {
+      const quantity = requestedProducts.find((p) => p.id === cart.product.id)?.quantity || 0;
+      return acc + Number(cart.product.price) * quantity;
+    }, 0);
+
+    const createOrderProcess = await db.$transaction(async (prismaTrans) => {
       try {
-        // Update the order status to accepted
-        const cancelledOrder = await prismaTrans.order.update({
-          where: { id: existedOrder.id },
-          data: { status: "CANCEL" },
+        const createdOrder = await prismaTrans.order.create({
+          data: {
+            user_id: existedUser.id,
+            order_date: new Date(),
+            status: "PENDING",
+            total_price: total_price,
+            order_product: {
+              create: requestedProducts.map((requestedProduct) => ({
+                product_id: requestedProduct.id,
+                quantity: requestedProduct.quantity,
+                price:
+                  Number(existedProductInCarts.find((cart) => cart.product.id === requestedProduct.id).product.price) *
+                  Number(requestedProduct.quantity),
+              })),
+            },
+          },
           select: {
             id: true,
             order_date: true,
@@ -365,6 +244,9 @@ export class OrderService {
                   select: {
                     id: true,
                     name: true,
+                    price: true,
+                    stock: true,
+                    description: true,
                   },
                 },
               },
@@ -372,30 +254,105 @@ export class OrderService {
           },
         });
 
-        // Update the product stock based on the order products
-        for (const orderProduct of existedOrder.order_product) {
+        for (const cartProduct of existedProductInCarts) {
+          const requestedProduct = requestedProducts.find((p) => p.id === cartProduct.product.id);
+
+          const quantity = requestedProduct.quantity;
           await prismaTrans.product.update({
-            where: { id: orderProduct.product_id },
-            data: { stock: { increment: orderProduct.quantity } },
+            where: {
+              id: cartProduct.product.id,
+            },
+            data: {
+              stock: {
+                decrement: quantity,
+              },
+            },
           });
         }
 
-        await prismaTrans.orderHistory.create({
+        return createdOrder;
+      } catch (error) {
+        console.error("Error inside transaction update stock in create order:", error.message);
+        throw new APIError(API_STATUS_CODE.BAD_REQUEST, "failed update stock in create order!"); // Re-throw to ensure transaction is rolled back
+      }
+    });
+
+    return createOrderProcess;
+  }
+
+  static async cancelOrder(request) {
+    const { orderId, loggedUserRole } = request;
+    checkAllowedRole(ROLE.IS_ALL_ROLE, loggedUserRole);
+
+    const existedOrder = await this.checkOrderMustBeExistById(orderId);
+
+    if (existedOrder.status === "CANCELLED") {
+      throw new APIError(API_STATUS_CODE.BAD_REQUEST, "Order already cancelled!");
+    }
+
+    if (existedOrder.status === "DONE") {
+      throw new APIError(API_STATUS_CODE.BAD_REQUEST, "Order already done!");
+    }
+
+    const canceledOrderProcess = await db.$transaction(async (prismaTrans) => {
+      try {
+        const cancelledOrder = await prismaTrans.order.update({
+          where: {
+            id: existedOrder.id,
+          },
           data: {
-            order_id: cancelledOrder.id,
-            status: "DONE",
+            status: "CANCELLED",
+          },
+          select: {
+            id: true,
+            order_date: true,
+            status: true,
+            total_price: true,
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                address: true,
+              },
+            },
+            order_product: {
+              select: {
+                id: true,
+                quantity: true,
+                price: true,
+                product: {
+                  select: {
+                    id: true,
+                    name: true,
+                    price: true,
+                    stock: true,
+                    description: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        for (const orderProduct of cancelledOrder.order_product) {
+          await prismaTrans.product.update({
+            where: {
+              id: orderProduct.product.id,
+            },
+            data: {
+              stock: {
+                increment: orderProduct.quantity,
+              },
+            },
+          });
+        }
+
+        await db.cart.deleteMany({
+          where: {
             user_id: cancelledOrder.user.id,
-            order_date: cancelledOrder.order_date,
-            total_price: cancelledOrder.total_price,
-            user_name: cancelledOrder.user.name,
-            order_product_history: {
-              create: cancelledOrder.order_product.map((p) => ({
-                order_product_id: p.id,
-                product_id: p.product.id,
-                product_name: p.product.name,
-                quantity: p.quantity,
-                price: p.price,
-              })),
+            product_id: {
+              in: cancelledOrder.order_product.map((op) => op.product.id),
             },
           },
         });
@@ -405,6 +362,74 @@ export class OrderService {
       }
     });
 
-    return true;
+    return canceledOrderProcess;
+  }
+
+  static async acceptOrder(request) {
+    const { orderId, loggedUserRole } = request;
+    checkAllowedRole(ROLE.IS_ADMIN, loggedUserRole);
+
+    const existedOrder = await this.checkOrderMustBeExistById(orderId);
+
+    if (existedOrder.status === "DONE") {
+      throw new APIError(API_STATUS_CODE.BAD_REQUEST, "Order already accepted!");
+    }
+
+    const acceptOrderProcess = await db.$transaction(async (prismaTrans) => {
+      try {
+        const acceptOrder = await prismaTrans.order.update({
+          where: {
+            id: existedOrder.id,
+          },
+          data: {
+            status: "DONE",
+          },
+          select: {
+            id: true,
+            order_date: true,
+            status: true,
+            total_price: true,
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                address: true,
+              },
+            },
+            order_product: {
+              select: {
+                id: true,
+                quantity: true,
+                price: true,
+                product: {
+                  select: {
+                    id: true,
+                    name: true,
+                    price: true,
+                    stock: true,
+                    description: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        await db.cart.deleteMany({
+          where: {
+            user_id: acceptOrder.user.id,
+            product_id: {
+              in: acceptOrder.order_product.map((op) => op.product.id),
+            },
+          },
+        });
+      } catch (error) {
+        console.error("Error inside transaction accept order:", error.message);
+        throw new APIError(API_STATUS_CODE.BAD_REQUEST, "failed accept order!"); // Re-throw to ensure transaction is rolled back
+      }
+    });
+
+    return acceptOrderProcess;
   }
 }

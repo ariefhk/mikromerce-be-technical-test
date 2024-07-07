@@ -18,7 +18,7 @@ export const checkAllowedRole = (roles, role) => {
   const isAllowed = roles.includes(role);
 
   if (!isAllowed) {
-    throw new APIError(API_STATUS_CODE.FORBIDDEN, "You dont have access to this!");
+    throw new APIError(API_STATUS_CODE.FORBIDDEN, "Unauthorized, Forbidden Access!");
   }
 
   return true;

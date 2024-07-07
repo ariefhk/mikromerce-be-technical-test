@@ -43,10 +43,10 @@ export class UserService {
   }
 
   static async register(request) {
-    const { name, email, address, password, role } = request;
+    const { name, email, address, phone_number, role, password } = request;
 
-    if (!password || !name || !email || !role) {
-      throw new APIError(API_STATUS_CODE.BAD_REQUEST, "Email, Password, Role, and Name must not missing!");
+    if (!password || !name || !email || !phone_number || !address) {
+      throw new APIError(API_STATUS_CODE.BAD_REQUEST, "Email, Password, Address,  Phone Number, and Name must not missing!");
     }
 
     const countUser = await db.user.count({
@@ -66,6 +66,7 @@ export class UserService {
         name,
         email,
         address,
+        phone_number,
         password: hashedPassword,
         role,
       },
@@ -74,7 +75,6 @@ export class UserService {
         name: true,
         email: true,
         address: true,
-        role: true,
       },
     });
 
@@ -83,7 +83,6 @@ export class UserService {
       name: registerUser.name,
       email: registerUser.email,
       address: registerUser.address,
-      role: registerUser.role,
     };
   }
 
@@ -109,8 +108,37 @@ export class UserService {
       "7d"
     );
 
+    await db.user.update({
+      where: {
+        id: existedUser.id,
+      },
+      data: {
+        token,
+      },
+    });
+
     return {
+      name: existedUser.name,
+      email: existedUser.email,
+      role: existedUser.role,
       token,
+    };
+  }
+
+  static async getUserById(request) {
+    const { userId, loggedUserRole } = request;
+    checkAllowedRole(ROLE.IS_ADMIN, loggedUserRole);
+
+    const existedUser = await this.checkUserMustBeExistById(userId);
+
+    return {
+      id: existedUser.id,
+      name: existedUser.name,
+      email: existedUser.email,
+      address: existedUser.address,
+      phone_number: existedUser.phone_number,
+      role: existedUser.role,
+      createdAt: existedUser.createdAt,
     };
   }
 
@@ -160,7 +188,9 @@ export class UserService {
         name: true,
         email: true,
         address: true,
+        phone_number: true,
         role: true,
+        createdAt: true,
       },
     });
 
@@ -168,7 +198,7 @@ export class UserService {
   }
 
   static async update(request) {
-    const { name, email, address, password, role, userId } = request;
+    const { name, email, address, password, phone_number, role, userId } = request;
 
     const existedUser = await this.checkUserMustBeExistById(userId);
 
@@ -180,6 +210,7 @@ export class UserService {
         name: name || existedUser.name,
         email: email || existedUser.email,
         address: address || existedUser?.address,
+        phone_number: phone_number || existedUser.phone_number,
         password: password ? await createBcryptPassword(password) : existedUser.password,
         role: role && existedUser.role === "ADMIN" ? role : existedUser.role,
       },
@@ -188,7 +219,6 @@ export class UserService {
         name: true,
         email: true,
         address: true,
-        role: true,
       },
     });
 
@@ -196,14 +226,12 @@ export class UserService {
       id: updatedUser.id,
       name: updatedUser.name,
       email: updatedUser.email,
-      address: updatedUser?.address,
-      role: updatedUser.role,
+      address: updatedUser.address,
     };
   }
 
   static async delete(request) {
     const { userId, loggedUserRole } = request;
-
     checkAllowedRole(ROLE.IS_ADMIN, loggedUserRole);
 
     const existedUser = await this.checkUserMustBeExistById(userId);
@@ -218,11 +246,8 @@ export class UserService {
   }
 
   static async logout(request) {
-    const { userId } = request;
-
-    if (!userId) {
-      throw new APIError(API_STATUS_CODE.BAD_REQUEST, "User id not inputted!");
-    }
+    const { userId, loggedUserRole } = request;
+    checkAllowedRole(ROLE.IS_ALL_ROLE, loggedUserRole);
 
     const existedUser = await this.checkUserMustBeExistById(userId);
 

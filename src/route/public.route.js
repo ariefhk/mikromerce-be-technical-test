@@ -18,6 +18,7 @@ publicRouter.post(authPrefix + "/register", UserController.register);
 publicRouter.get(categoryPrefix, CategoryController.getAll);
 
 // PRODUCT ROUTE
+publicRouter.get(productPrefix + "/category/:categoryId", ProductController.getProductByCategory);
 publicRouter.get(productPrefix + "/:productId", ProductController.get);
 publicRouter.get(productPrefix, ProductController.getAll);
 

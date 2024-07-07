@@ -23,9 +23,24 @@ export class ProductController {
         productId: req?.params?.productId ? Number(req.params.productId) : null,
       };
 
-      const result = await ProductService.getAllProducts(getProductRequest);
+      const result = await ProductService.get(getProductRequest);
 
       return res.status(API_STATUS_CODE.OK).json(ResponseHelper.toJson("Success get product", result));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getProductByCategory(req, res, next) {
+    try {
+      const getProductByCategoryRequest = {
+        name: req?.query?.name,
+        categoryId: req?.params?.categoryId ? Number(req.params.categoryId) : null,
+      };
+
+      const result = await ProductService.getProductByCategory(getProductByCategoryRequest);
+
+      return res.status(API_STATUS_CODE.OK).json(ResponseHelper.toJson("Success get product by category", result));
     } catch (error) {
       next(error);
     }
@@ -77,9 +92,9 @@ export class ProductController {
         productId: req?.params?.productId ? Number(req.params.productId) : null,
       };
 
-      const result = await ProductService.deleteProduct(deleteProductRequest);
+      await ProductService.deleteProduct(deleteProductRequest);
 
-      return res.status(API_STATUS_CODE.OK).json(ResponseHelper.toJson("Success delete product", result));
+      return res.status(API_STATUS_CODE.OK).json(ResponseHelper.toJson("Success delete product"));
     } catch (error) {
       next(error);
     }

@@ -23,22 +23,23 @@ enum Role {
 enum OrderStatus {
   PENDING
   DONE
-  CANCEL
+  CANCELLED
 }
 
 // User model
 model User {
-  id        Int      @id @default(autoincrement())
-  name      String
-  address   String?
-  email     String   @unique
-  password  String
-  token     String?
-  role      Role     @default(CUSTOMER)
-  order     Order[]
-  cart      Cart[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           Int      @id @default(autoincrement())
+  name         String
+  address      String
+  phone_number String
+  email        String   @unique
+  password     String
+  token        String?
+  role         Role     @default(CUSTOMER)
+  order        Order[]
+  cart         Cart[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@map("users")
 }

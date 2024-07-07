@@ -2,6 +2,8 @@ import { db } from "../db/connector.js";
 import { APIError } from "../error/api.error.js";
 import { ROLE, checkAllowedRole } from "../helper/role-check.helper.js";
 import { API_STATUS_CODE } from "../helper/status-code.helper.js";
+import { UserService } from "./user.service.js";
+import { ProductService } from "./product.service.js";
 
 export class CartService {
   static async checkCartMustBeExistById(cartId) {
@@ -22,85 +24,128 @@ export class CartService {
     return existedCart;
   }
 
-  static async createCart(request) {
-    const { userId, productId, quantity, loggedUserRole } = request;
-
-    checkAllowedRole(ROLE.IS_USER, loggedUserRole);
-
-    if (!userId) {
-      throw new APIError(API_STATUS_CODE.BAD_REQUEST, "User Id must not missing!");
+  static async checkCartMustBeExistByProductIdAndUserId(productId, userId) {
+    if (!productId || !userId) {
+      throw new APIError(API_STATUS_CODE.NOT_FOUND, "Product Id or User Id Not Inputed!");
     }
 
-    if (!productId) {
-      throw new APIError(API_STATUS_CODE.BAD_REQUEST, "Product Id must not missing!");
-    }
-
-    if (!quantity) {
-      throw new APIError(API_STATUS_CODE.BAD_REQUEST, "Quantity must not missing!");
-    }
-
-    const countCart = await db.cart.count({
+    const existedCart = await db.cart.findFirst({
       where: {
-        userId,
-        productId,
+        product_id: productId,
+        user_id: userId,
       },
     });
 
-    if (countCart !== 0) {
-      throw new APIError(API_STATUS_CODE.BAD_REQUEST, "Cart already exists!");
+    if (!existedCart) {
+      throw new APIError(API_STATUS_CODE.NOT_FOUND, "Cart not found!");
+    }
+
+    return existedCart;
+  }
+
+  static async createCart(request) {
+    const { userId, productId, loggedUserRole } = request;
+    checkAllowedRole(ROLE.IS_ALL_ROLE, loggedUserRole);
+
+    const existedProduct = await ProductService.checkProductMustBeExistById(productId);
+    const existedCart = await db.cart.findFirst({
+      where: {
+        product_id: existedProduct.id,
+        user_id: userId,
+      },
+    });
+
+    if (existedCart) {
+      throw new APIError(API_STATUS_CODE.BAD_REQUEST, "Product already in cart!");
     }
 
     const createCart = await db.cart.create({
       data: {
-        userId,
-        productId,
-        quantity,
+        product_id: existedProduct.id,
+        user_id: userId,
+      },
+      select: {
+        id: true,
+        product: {
+          select: {
+            id: true,
+            name: true,
+            price: true,
+            stock: true,
+            description: true,
+          },
+        },
       },
     });
 
     return createCart;
   }
 
-  static async updateCart(request) {
-    const { userId, productId, quantity, cartId, loggedUserRole } = request;
+  static async getUserCart(request) {
+    const { name, userId, loggedUserRole, isAdmin } = request;
+    const filter = {};
 
-    checkAllowedRole(ROLE.IS_USER, loggedUserRole);
+    await UserService.checkUserMustBeExistById(userId);
 
-    const existedCart = await CartService.checkCartMustBeExistById(cartId);
+    if (!isAdmin) {
+      checkAllowedRole(ROLE.IS_ALL_ROLE, loggedUserRole);
+      filter.AND = [
+        {
+          user_id: userId,
+        },
+      ];
+    } else {
+      checkAllowedRole(ROLE.IS_ADMIN, loggedUserRole);
+      filter.AND = [];
+    }
 
-    const updateCart = await db.cart.update({
-      where: {
-        id: cartId,
-      },
-      data: {
-        userId,
-        productId,
-        quantity,
+    if (name) {
+      filter.AND.push({
+        product: {
+          name: {
+            contains: name,
+            mode: "insensitive",
+          },
+        },
+      });
+    }
+
+    const carts = await db.cart.findMany({
+      orderBy: [
+        {
+          createdAt: "desc",
+        },
+      ],
+      where: filter,
+      select: {
+        id: true,
+        product: {
+          select: {
+            id: true,
+            name: true,
+            price: true,
+            stock: true,
+            description: true,
+          },
+        },
       },
     });
 
-    return updateCart;
+    return carts;
   }
 
   static async deleteCart(request) {
     const { cartId, loggedUserRole } = request;
-
-    checkAllowedRole(ROLE.IS_USER, loggedUserRole);
+    checkAllowedRole(ROLE.IS_ALL_ROLE, loggedUserRole);
 
     const existedCart = await CartService.checkCartMustBeExistById(cartId);
 
-    const deleteCart = await db.cart.delete({
+    await db.cart.delete({
       where: {
-        id: cartId,
+        id: existedCart.id,
       },
     });
 
-    return deleteCart;
-  }
-
-  static async getCart(request) {
-    const { userId, loggedUserRole } = request;
-
-    checkAllowedRole(ROLE.IS_USER, loggedUserRole);
+    return true;
   }
 }

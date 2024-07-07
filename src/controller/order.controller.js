@@ -3,30 +3,32 @@ import { API_STATUS_CODE } from "../helper/status-code.helper.js";
 import { OrderService } from "../service/order.service.js";
 
 export class OrderController {
-  static async getCurrentUserOrder(req, res, next) {
+  static async getUserOrder(req, res, next) {
     try {
       const getUserOrderRequest = {
         loggedUserRole: req?.loggedUser?.role,
         userId: req?.params?.userId ? Number(req.params.userId) : null,
+        status: String(req?.query?.status)?.toLocaleLowerCase(),
       };
 
-      const result = await OrderService.getCurrentUserOrder(getUserOrderRequest);
+      const result = await OrderService.getAllOrder(getUserOrderRequest);
 
-      return res.status(API_STATUS_CODE.OK).json(ResponseHelper.toJson("Success get current user order", result));
+      return res.status(API_STATUS_CODE.OK).json(ResponseHelper.toJson("Success get user order", result));
     } catch (error) {
       next(error);
     }
   }
 
-  static async get(req, res, next) {
+  static async getAllOrder(req, res, next) {
     try {
-      const getProductRequest = {
-        productId: req?.params?.productId ? Number(req.params.productId) : null,
+      const getAllOrderRequest = {
+        loggedUserRole: req?.loggedUser?.role,
+        status: String(req?.query?.status)?.toLocaleLowerCase(),
       };
 
-      const result = await ProductService.getAllProducts(getProductRequest);
+      const result = await OrderService.getAllOrder(getAllOrderRequest);
 
-      return res.status(API_STATUS_CODE.OK).json(ResponseHelper.toJson("Success get product", result));
+      return res.status(API_STATUS_CODE.OK).json(ResponseHelper.toJson("Success get all order", result));
     } catch (error) {
       next(error);
     }
@@ -35,15 +37,12 @@ export class OrderController {
   static async create(req, res, next) {
     try {
       const createProductRequest = {
-        category_id: req.body.category_id ? Number(req.body.category_id) : null,
         loggedUserRole: req?.loggedUser?.role,
-        name: req.body.name,
-        price: req.body.price,
-        stock: req.body.stock,
-        description: req.body.description,
+        requestedProducts: req.body.requestedProducts,
+        userId: req?.loggedUser?.id ? Number(req.loggedUser.id) : null,
       };
 
-      const result = await ProductService.createProduct(createProductRequest);
+      const result = await OrderService.createOrder(createProductRequest);
 
       return res.status(API_STATUS_CODE.CREATED).json(ResponseHelper.toJson("Success create product", result));
     } catch (error) {
@@ -51,36 +50,31 @@ export class OrderController {
     }
   }
 
-  static async update(req, res, next) {
+  static async acceptOrder(req, res, next) {
     try {
-      const updateProductRequest = {
+      const acceptOrderRequest = {
         loggedUserRole: req?.loggedUser?.role,
-        productId: req?.params?.productId ? Number(req.params.productId) : null,
-        category_id: req.body.category_id ? Number(req.body.category_id) : null,
-        name: req.body.name,
-        price: req.body.price,
-        stock: req.body.stock,
-        description: req.body.description,
+        orderId: req?.params?.orderId ? Number(req.params.orderId) : null,
       };
 
-      const result = await ProductService.updateProduct(updateProductRequest);
+      const result = await OrderService.acceptOrder(acceptOrderRequest);
 
-      return res.status(API_STATUS_CODE.CREATED).json(ResponseHelper.toJson("Success update product", result));
+      return res.status(API_STATUS_CODE.CREATED).json(ResponseHelper.toJson("Success accept order", result));
     } catch (error) {
       next(error);
     }
   }
 
-  static async delete(req, res, next) {
+  static async cancelOrder(req, res, next) {
     try {
-      const deleteProductRequest = {
+      const cancelOrderRequest = {
         loggedUserRole: req?.loggedUser?.role,
-        productId: req?.params?.productId ? Number(req.params.productId) : null,
+        orderId: req?.params?.orderId ? Number(req.params.orderId) : null,
       };
 
-      const result = await ProductService.deleteProduct(deleteProductRequest);
+      const result = await OrderService.cancelOrder(cancelOrderRequest);
 
-      return res.status(API_STATUS_CODE.OK).json(ResponseHelper.toJson("Success delete product", result));
+      return res.status(API_STATUS_CODE.CREATED).json(ResponseHelper.toJson("Success cancel order", result));
     } catch (error) {
       next(error);
     }

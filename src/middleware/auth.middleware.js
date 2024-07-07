@@ -5,6 +5,7 @@ import { UserService } from "../service/user.service.js";
 
 export const authMiddleware = async (req, res, next) => {
   const token = req.get("Authorization")?.split("Bearer ")[1];
+
   if (!token) {
     return res.status(API_STATUS_CODE.UNAUTHORIZED).json(ResponseHelper.toJsonError("Unauthorized!")).end();
   } else {
@@ -15,6 +16,7 @@ export const authMiddleware = async (req, res, next) => {
         id: user.id,
         name: user.name,
         email: user.email,
+        address: user.address,
         role: user.role,
       };
 

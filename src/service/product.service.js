@@ -14,6 +14,11 @@ export class ProductService {
       where: {
         id: productId,
       },
+      include: {
+        category: true,
+        cart: true,
+        order_product: true,
+      },
     });
 
     if (!existedProduct) {
@@ -36,6 +41,20 @@ export class ProductService {
 
     const products = await db.product.findMany({
       where: filter,
+      select: {
+        id: true,
+        name: true,
+        price: true,
+        stock: true,
+        description: true,
+        category: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        createdAt: true,
+      },
     });
 
     return products;
@@ -44,7 +63,61 @@ export class ProductService {
   static async get(request) {
     const { productId } = request;
 
-    const product = await ProductService.checkProductMustBeExistById(productId);
+    const product = await this.checkProductMustBeExistById(productId);
+
+    return {
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      stock: product.stock,
+      description: product.description,
+      category: {
+        id: product.category.id,
+        name: product.category.name,
+      },
+      createdAt: product.createdAt,
+    };
+  }
+
+  static async getProductByCategory(request) {
+    const { categoryId, name } = request;
+
+    const existedCategory = await CategoryService.checkCategoryMustBeExistById(categoryId);
+
+    const filter = {
+      AND: [
+        {
+          category_id: existedCategory.id,
+        },
+      ],
+    };
+
+    if (name) {
+      filter.AND.push({
+        name: {
+          contains: name,
+          mode: "insensitive",
+        },
+      });
+    }
+
+    const product = await db.product.findMany({
+      where: filter,
+      select: {
+        id: true,
+        name: true,
+        price: true,
+        stock: true,
+        description: true,
+        category: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        createdAt: true,
+      },
+    });
 
     return product;
   }
@@ -67,9 +140,23 @@ export class ProductService {
         stock,
         category_id: existedCategory.id,
       },
+      include: {
+        category: true,
+      },
     });
 
-    return product;
+    return {
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      stock: product.stock,
+      description: product.description,
+      category: {
+        id: product.category.id,
+        name: product.category.name,
+      },
+      createdAt: product.createdAt,
+    };
   }
 
   static async updateProduct(request) {
@@ -95,9 +182,23 @@ export class ProductService {
         description: description || existedProduct.description,
         category_id: updatedCategory?.id || existedProduct.category_id,
       },
+      include: {
+        category: true,
+      },
     });
 
-    return product;
+    return {
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      stock: product.stock,
+      description: product.description,
+      category: {
+        id: product.category.id,
+        name: product.category.name,
+      },
+      createdAt: product.createdAt,
+    };
   }
 
   static async deleteProduct(request) {
@@ -108,10 +209,10 @@ export class ProductService {
 
     await db.product.delete({
       where: {
-        id: productId,
+        id: existedProduct.id,
       },
     });
 
-    return existedProduct;
+    return true;
   }
 }
