@@ -6,6 +6,7 @@ import { CartController } from "../controller/cart.controller.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
 import { OrderController } from "../controller/order.controller.js";
 import { userPrefix, productPrefix, categoryPrefix, authPrefix, cartPrefix, orderPrefix } from "./prefix.route.js";
+import { imgUploader } from "../middleware/img-uploader.middleware.js";
 
 const privateRouter = express.Router();
 
@@ -27,7 +28,7 @@ privateRouter.post(categoryPrefix, authMiddleware, CategoryController.create);
 // PRODUCT ROUTE
 privateRouter.delete(productPrefix + "/:productId", authMiddleware, ProductController.delete);
 privateRouter.put(productPrefix + "/:productId", authMiddleware, ProductController.update);
-privateRouter.post(productPrefix, authMiddleware, ProductController.create);
+privateRouter.post(productPrefix, authMiddleware, imgUploader, ProductController.create);
 
 // CART ROUTE
 privateRouter.delete(cartPrefix + "/:cartId", authMiddleware, CartController.delete);
@@ -38,7 +39,7 @@ privateRouter.get(cartPrefix + "/user/:userId", authMiddleware, CartController.g
 // ORDER ROUTE
 privateRouter.post(orderPrefix + "/:orderId/accept", authMiddleware, OrderController.acceptOrder);
 privateRouter.post(orderPrefix + "/:orderId/cancel", authMiddleware, OrderController.cancelOrder);
-privateRouter.post(orderPrefix, authMiddleware, OrderController.create);
+privateRouter.post(orderPrefix, authMiddleware, imgUploader, OrderController.create);
 privateRouter.get(orderPrefix + "/user/:userId", authMiddleware, OrderController.getUserOrder);
 privateRouter.get(orderPrefix, authMiddleware, OrderController.getAllOrder);
 

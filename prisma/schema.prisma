@@ -31,6 +31,7 @@ model User {
   id           Int      @id @default(autoincrement())
   name         String
   address      String
+  photo        String?
   phone_number String
   email        String   @unique
   password     String
@@ -62,6 +63,7 @@ model Product {
   category_id   Int
   name          String
   description   String?
+  image         String
   price         String
   stock         Int
   order_product OrderProduct[]
@@ -86,15 +88,16 @@ model Cart {
 
 // Order model
 model Order {
-  id            Int            @id @default(autoincrement())
-  user          User           @relation(fields: [user_id], references: [id])
-  user_id       Int
-  order_date    DateTime
-  status        OrderStatus
-  total_price   Int
-  order_product OrderProduct[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id               Int            @id @default(autoincrement())
+  user             User           @relation(fields: [user_id], references: [id])
+  user_id          Int
+  order_date       DateTime
+  status           OrderStatus
+  proof_of_payment String
+  total_price      Int
+  order_product    OrderProduct[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 
   @@map("orders")
 }

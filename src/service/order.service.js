@@ -1,9 +1,10 @@
-import e from "express";
 import { db } from "../db/connector.js";
 import { APIError } from "../error/api.error.js";
 import { ROLE, checkAllowedRole } from "../helper/role-check.helper.js";
 import { API_STATUS_CODE } from "../helper/status-code.helper.js";
 import { UserService } from "./user.service.js";
+import { CloudinaryService } from "./cloudinary.service.js";
+import { CLOUDINARY_FOLDER } from "../helper/cloudinary-storage.helper.js";
 
 export class OrderService {
   static async checkOrderMustBeExistById(orderId) {
@@ -114,6 +115,7 @@ export class OrderService {
         id: true,
         order_date: true,
         status: true,
+        proof_of_payment: true,
         total_price: true,
         user: {
           select: {
@@ -133,6 +135,7 @@ export class OrderService {
                 id: true,
                 name: true,
                 price: true,
+                image: true,
                 stock: true,
                 description: true,
               },
@@ -146,7 +149,7 @@ export class OrderService {
   }
 
   static async createOrder(request) {
-    const { userId, requestedProducts, loggedUserRole } = request;
+    const { userId, proof_of_payment, requestedProducts, loggedUserRole } = request;
     checkAllowedRole(ROLE.IS_ALL_ROLE, loggedUserRole);
 
     const existedUser = await UserService.checkUserMustBeExistById(userId);
@@ -154,6 +157,12 @@ export class OrderService {
     if (!requestedProducts || requestedProducts?.length === 0) {
       throw new APIError(API_STATUS_CODE.BAD_REQUEST, "Products must not empty to order!");
     }
+
+    if (!proof_of_payment) {
+      throw new APIError(API_STATUS_CODE.BAD_REQUEST, "Proof of payment must not empty!");
+    }
+
+    const proofOfPaymentUrl = await CloudinaryService.uploadImage(proof_of_payment, CLOUDINARY_FOLDER.TRANSACTION);
 
     const requestedProductIds = requestedProducts.map((product) => product.id);
 
@@ -211,6 +220,7 @@ export class OrderService {
             user_id: existedUser.id,
             order_date: new Date(),
             status: "PENDING",
+            proof_of_payment: proofOfPaymentUrl,
             total_price: total_price,
             order_product: {
               create: requestedProducts.map((requestedProduct) => ({
@@ -227,6 +237,7 @@ export class OrderService {
             order_date: true,
             status: true,
             total_price: true,
+            proof_of_payment: true,
             user: {
               select: {
                 id: true,
@@ -244,6 +255,7 @@ export class OrderService {
                   select: {
                     id: true,
                     name: true,
+                    image: true,
                     price: true,
                     stock: true,
                     description: true,
@@ -307,6 +319,7 @@ export class OrderService {
             id: true,
             order_date: true,
             status: true,
+            proof_of_payment: true,
             total_price: true,
             user: {
               select: {
@@ -326,6 +339,7 @@ export class OrderService {
                     id: true,
                     name: true,
                     price: true,
+                    image: true,
                     stock: true,
                     description: true,
                   },
@@ -388,6 +402,7 @@ export class OrderService {
             id: true,
             order_date: true,
             status: true,
+            proof_of_payment: true,
             total_price: true,
             user: {
               select: {
@@ -407,6 +422,7 @@ export class OrderService {
                     id: true,
                     name: true,
                     price: true,
+                    image: true,
                     stock: true,
                     description: true,
                   },

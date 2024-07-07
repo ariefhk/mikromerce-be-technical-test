@@ -69,6 +69,7 @@ export class UserController {
     try {
       const registerUserRequest = {
         name: req.body.name,
+        photo: req?.file,
         email: req.body.email,
         address: req.body.address,
         phone_number: req.body.phone_number,
@@ -90,6 +91,7 @@ export class UserController {
         loggedUserRole: req?.loggedUser?.role,
         userId: req.params.userId ? Number(req.params.userId) : null,
         name: req.body.name,
+        photo: req?.file,
         email: req.body.email,
         address: req.body.address,
         password: req.body.password,

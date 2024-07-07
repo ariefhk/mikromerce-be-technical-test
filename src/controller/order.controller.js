@@ -36,13 +36,16 @@ export class OrderController {
 
   static async create(req, res, next) {
     try {
-      const createProductRequest = {
+      const createOrderRequest = {
         loggedUserRole: req?.loggedUser?.role,
-        requestedProducts: req.body.requestedProducts,
+        requestedProducts: req.body.requestedProducts ? JSON.parse(req.body.requestedProducts) : null,
+        proof_of_payment: req?.file,
         userId: req?.loggedUser?.id ? Number(req.loggedUser.id) : null,
       };
 
-      const result = await OrderService.createOrder(createProductRequest);
+      console.log(createOrderRequest);
+
+      const result = await OrderService.createOrder(createOrderRequest);
 
       return res.status(API_STATUS_CODE.CREATED).json(ResponseHelper.toJson("Success create product", result));
     } catch (error) {

@@ -51,9 +51,10 @@ export class ProductController {
       const createProductRequest = {
         category_id: req.body.category_id ? Number(req.body.category_id) : null,
         loggedUserRole: req?.loggedUser?.role,
+        image: req?.file,
         name: req.body.name,
         price: req.body.price,
-        stock: req.body.stock,
+        stock: req.body.stock ? Number(req.body.stock) : null,
         description: req.body.description,
       };
 
@@ -71,9 +72,10 @@ export class ProductController {
         loggedUserRole: req?.loggedUser?.role,
         productId: req?.params?.productId ? Number(req.params.productId) : null,
         category_id: req.body.category_id ? Number(req.body.category_id) : null,
+        image: req?.file,
         name: req.body.name,
         price: req.body.price,
-        stock: req.body.stock,
+        stock: req.body.stock ? Number(req.body.stock) : null,
         description: req.body.description,
       };
 

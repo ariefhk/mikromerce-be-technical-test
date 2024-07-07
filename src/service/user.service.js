@@ -4,6 +4,8 @@ import { ROLE, checkAllowedRole } from "../helper/role-check.helper.js";
 import { makeJwt, decodeJwt } from "../helper/jwt.helper.js";
 import { createBcryptPassword, compareBcryptPassword } from "../helper/hashing.helper.js";
 import { API_STATUS_CODE } from "../helper/status-code.helper.js";
+import { CloudinaryService } from "./cloudinary.service.js";
+import { CLOUDINARY_FOLDER } from "../helper/cloudinary-storage.helper.js";
 
 export class UserService {
   static async checkUserMustBeExistById(userId) {
@@ -43,10 +45,13 @@ export class UserService {
   }
 
   static async register(request) {
-    const { name, email, address, phone_number, role, password } = request;
+    const { name, email, address, photo, phone_number, role, password } = request;
 
-    if (!password || !name || !email || !phone_number || !address) {
-      throw new APIError(API_STATUS_CODE.BAD_REQUEST, "Email, Password, Address,  Phone Number, and Name must not missing!");
+    if (!password || !name || !email || !phone_number || !address || !photo) {
+      throw new APIError(
+        API_STATUS_CODE.BAD_REQUEST,
+        "Email, Password, Address, Photo,  Phone Number, and Name must not missing!"
+      );
     }
 
     const countUser = await db.user.count({
@@ -61,6 +66,8 @@ export class UserService {
 
     const hashedPassword = await createBcryptPassword(password);
 
+    const photoUrl = await CloudinaryService.uploadImage(photo, CLOUDINARY_FOLDER.PROFILE);
+
     const registerUser = await db.user.create({
       data: {
         name,
@@ -68,6 +75,7 @@ export class UserService {
         address,
         phone_number,
         password: hashedPassword,
+        photo: photoUrl,
         role,
       },
       select: {
@@ -75,6 +83,7 @@ export class UserService {
         name: true,
         email: true,
         address: true,
+        photo: true,
       },
     });
 
@@ -83,6 +92,7 @@ export class UserService {
       name: registerUser.name,
       email: registerUser.email,
       address: registerUser.address,
+      photo: registerUser?.photo,
     };
   }
 
@@ -120,6 +130,7 @@ export class UserService {
     return {
       name: existedUser.name,
       email: existedUser.email,
+      photo: existedUser?.photo,
       role: existedUser.role,
       token,
     };
@@ -137,6 +148,7 @@ export class UserService {
       email: existedUser.email,
       address: existedUser.address,
       phone_number: existedUser.phone_number,
+      photo: existedUser?.photo,
       role: existedUser.role,
       createdAt: existedUser.createdAt,
     };
@@ -160,6 +172,7 @@ export class UserService {
       name: existedUser.name,
       email: existedUser.email,
       address: existedUser.address,
+      photo: existedUser?.photo,
       role: existedUser.role,
     };
   }
@@ -188,6 +201,7 @@ export class UserService {
         name: true,
         email: true,
         address: true,
+        photo: true,
         phone_number: true,
         role: true,
         createdAt: true,
@@ -198,7 +212,7 @@ export class UserService {
   }
 
   static async update(request) {
-    const { name, email, address, password, phone_number, role, userId } = request;
+    const { name, email, address, password, photo, phone_number, role, userId } = request;
 
     const existedUser = await this.checkUserMustBeExistById(userId);
 
@@ -210,6 +224,7 @@ export class UserService {
         name: name || existedUser.name,
         email: email || existedUser.email,
         address: address || existedUser?.address,
+        photo: photo ? await CloudinaryService.uploadImage(photo, CLOUDINARY_FOLDER.PROFILE) : existedUser.photo,
         phone_number: phone_number || existedUser.phone_number,
         password: password ? await createBcryptPassword(password) : existedUser.password,
         role: role && existedUser.role === "ADMIN" ? role : existedUser.role,
@@ -219,6 +234,7 @@ export class UserService {
         name: true,
         email: true,
         address: true,
+        photo: true,
       },
     });
 
@@ -227,6 +243,7 @@ export class UserService {
       name: updatedUser.name,
       email: updatedUser.email,
       address: updatedUser.address,
+      photo: updatedUser?.photo,
     };
   }
 
@@ -235,6 +252,10 @@ export class UserService {
     checkAllowedRole(ROLE.IS_ADMIN, loggedUserRole);
 
     const existedUser = await this.checkUserMustBeExistById(userId);
+
+    if (existedUser.photo) {
+      await CloudinaryService.deleteImage(existedUser.photo);
+    }
 
     await db.user.delete({
       where: {

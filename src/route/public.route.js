@@ -4,6 +4,7 @@ import { UserController } from "../controller/user.controller.js";
 import { ProductController } from "../controller/product.controller.js";
 import { authPrefix, productPrefix, categoryPrefix } from "./prefix.route.js";
 import { CategoryController } from "../controller/category.controller.js";
+import { imgUploader } from "../middleware/img-uploader.middleware.js";
 
 const publicRouter = express.Router();
 
@@ -12,7 +13,7 @@ publicRouter.get("/", HelloController.sayHello);
 
 // AUTH ROUTE
 publicRouter.post(authPrefix + "/login", UserController.login);
-publicRouter.post(authPrefix + "/register", UserController.register);
+publicRouter.post(authPrefix + "/register", imgUploader, UserController.register);
 
 // CATEGORY ROUTE
 publicRouter.get(categoryPrefix, CategoryController.getAll);
